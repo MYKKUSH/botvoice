@@ -1,5 +1,6 @@
 python-telegram-bot==13.15
-openai-whisper
+SpeechRecognition==3.10.0
 pydub==0.25.1
-ffmpeg-python
-torch
+transformers==4.41.2
+torch==2.3.0
+ffmpeg-python==0.2.0
