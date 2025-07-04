@@ -5,11 +5,10 @@ from pydub import AudioSegment
 from telegram import Update
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
 from transformers import AutoTokenizer, AutoModelForTokenClassification, TokenClassificationPipeline
+from keep_alive import keep_alive  # ✅ добавлено
 
-# Вставь сюда токен своего бота
-TELEGRAM_TOKEN = '7798240839:AAEWV-BvjmOSoDL_8ixiW5eNllod7ZmJHkU'
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")  # ✅ из переменной окружения
 
-# 📦 Загружаем модель RUPunct для пунктуации
 MODEL_NAME = "RUPunct/RUPunct_small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME)
@@ -47,19 +46,15 @@ def voice_handler(update: Update, context: CallbackContext):
     file.download(ogg_path)
 
     try:
-        # Конвертируем .ogg → .wav
         audio = AudioSegment.from_ogg(ogg_path)
         audio.export(wav_path, format="wav")
 
-        # Распознаём речь
         recognizer = sr.Recognizer()
         with sr.AudioFile(wav_path) as source:
             audio_data = recognizer.record(source)
             raw_text = recognizer.recognize_google(audio_data, language="ru-RU")
 
-        # Добавляем пунктуацию
         punctuated_text = restore_punctuation(raw_text)
-
         update.message.reply_text(f"📝 {punctuated_text}")
 
     except Exception as e:
@@ -71,6 +66,7 @@ def voice_handler(update: Update, context: CallbackContext):
                 os.remove(f)
 
 def main():
+    keep_alive()  # ✅ добавлено
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
     dp.add_handler(MessageHandler(Filters.voice, voice_handler))
