@@ -3,6 +3,8 @@ services:
     name: voice-bot
     env: docker
     plan: free
+    dockerfilePath: Dockerfile
+    autoDeploy: true
     envVars:
       - key: TELEGRAM_TOKEN
         value: 7798240839:AAEWV-BvjmOSoDL_8ixiW5eNllod7ZmJHkU
