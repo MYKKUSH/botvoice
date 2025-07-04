@@ -8,7 +8,7 @@ from pydub import AudioSegment
 TELEGRAM_TOKEN = ''
 
 # Загружаем модель Whisper один раз
-model = whisper.load_model("base")  # можно заменить на "small", "medium", "large" — точнее, но медленнее
+model = whisper.load_model("tiny")  # можно заменить на "small", "medium", "large" — точнее, но медленнее
 
 def voice_handler(update: Update, context: CallbackContext):
     voice = update.message.voice
