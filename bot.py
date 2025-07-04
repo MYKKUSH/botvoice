@@ -1,51 +1,79 @@
 import os
-import whisper
+import torch
+import speech_recognition as sr
+from pydub import AudioSegment
 from telegram import Update
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
-from pydub import AudioSegment
+from transformers import AutoTokenizer, AutoModelForTokenClassification, TokenClassificationPipeline
 
 # Вставь сюда токен своего бота
-TELEGRAM_TOKEN = ''
+TELEGRAM_TOKEN = '7798240839:AAEWV-BvjmOSoDL_8ixiW5eNllod7ZmJHkU'
 
-# Загружаем модель Whisper один раз
-model = whisper.load_model("tiny")  # можно заменить на "small", "medium", "large" — точнее, но медленнее
+# 📦 Загружаем модель RUPunct для пунктуации
+MODEL_NAME = "RUPunct/RUPunct_small"
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME)
+punct_pipeline = TokenClassificationPipeline(
+    model=model,
+    tokenizer=tokenizer,
+    aggregation_strategy="first",
+    device=0 if torch.cuda.is_available() else -1
+)
+
+def restore_punctuation(text: str) -> str:
+    tokens = punct_pipeline(text)
+    result = ""
+    for token in tokens:
+        word = token["word"]
+        label = token["entity_group"]
+        if label == "LOWER_COMMA":
+            word += ","
+        elif label == "LOWER_PERIOD":
+            word += "."
+        elif label == "LOWER_QUESTION":
+            word += "?"
+        elif label == "LOWER_VOSKL":
+            word += "!"
+        result += word + " "
+    return result.strip()
 
 def voice_handler(update: Update, context: CallbackContext):
     voice = update.message.voice
     file = context.bot.getFile(voice.file_id)
-    
+
     ogg_path = "voice.ogg"
     wav_path = "voice.wav"
 
     file.download(ogg_path)
 
     try:
-        # Конвертация OGG -> WAV
+        # Конвертируем .ogg → .wav
         audio = AudioSegment.from_ogg(ogg_path)
         audio.export(wav_path, format="wav")
 
-        # Распознавание через Whisper
-        result = model.transcribe(wav_path, language="ru")
-        text = result["text"]
+        # Распознаём речь
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
+            raw_text = recognizer.recognize_google(audio_data, language="ru-RU")
 
-        update.message.reply_text(f"📝 Текст: {text}")
+        # Добавляем пунктуацию
+        punctuated_text = restore_punctuation(raw_text)
+
+        update.message.reply_text(f"📝 {punctuated_text}")
 
     except Exception as e:
         update.message.reply_text(f"⚠️ Ошибка: {str(e)}")
 
     finally:
-        # Очистка временных файлов
-        if os.path.exists(ogg_path):
-            os.remove(ogg_path)
-        if os.path.exists(wav_path):
-            os.remove(wav_path)
+        for f in (ogg_path, wav_path):
+            if os.path.exists(f):
+                os.remove(f)
 
 def main():
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
-
     dp.add_handler(MessageHandler(Filters.voice, voice_handler))
-
     updater.start_polling()
     updater.idle()
 
